@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>バーチャル作業部屋 - Firebase版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            max-width: 900px;
+            width: 95%;
+            backdrop-filter: blur(10px);
+        }
+        
+        .login-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .login-input {
+            padding: 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            margin: 0 10px;
+            font-size: 16px;
+            min-width: 150px;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .main-app {
+            display: none;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .room-info {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+        
+        .connection-status {
+            padding: 8px 15px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        
+        .connection-status.connected {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .connection-status.connecting {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .connection-status.disconnected {
+            background: #f44336;
+            color: white;
+        }
+        
+        .users-online {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            position: relative;
+        }
+        
+        .user-avatar.online::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 12px;
+            height: 12px;
+            background: #4CAF50;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        
+        .virtual-table {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .table-container {
+            width: 100%;
+            height: 300px;
+            position: relative;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 20px;
+            border: 3px solid #dee2e6;
+        }
+        
+        .table-surface {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            height: 40%;
+            background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+            border-radius: 50%;
+            box-shadow: 
+                inset 0 2px 4px rgba(0,0,0,0.1),
+                0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .table-decoration {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30%;
+            height: 20%;
+            background: linear-gradient(45deg, #667eea20, #764ba220);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+        
+        .seat {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 3px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .seat.occupied {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border-color: #667eea;
+            transform: scale(1.1);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .seat-user {
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .seat.empty {
+            opacity: 0.6;
+        }
+        
+        .seat.empty::before {
+            content: '💺';
+            font-size: 1.5rem;
+        }
+        
+        .working-indicator {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
+            background: #4CAF50;
+            border-radius: 50%;
+            border: 2px solid white;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .break-indicator {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
+            background: #FF9800;
+            border-radius: 50%;
+            border: 2px solid white;
+            animation: breathe 3s infinite;
+        }
+        
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .table-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+        
+        .room-atmosphere {
+            text-align: center;
+            margin-top: 15px;
+            padding: 10px;
+            background: linear-gradient(45deg, #667eea10, #764ba210);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .timer-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .timer-display {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #667eea;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .timer-status {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #666;
+        }
+        
+        .timer-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .music-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .music-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .volume-slider {
+            width: 100px;
+        }
+        
+        .playlist {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        
+        .track-item {
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .track-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .track-item.playing {
+            background: linear-gradient(45deg, #667eea20, #764ba220);
+            color: #667eea;
+        }
+        
+        .chat-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chat-messages {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f9f9f9;
+        }
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            background: white;
+            border-left: 3px solid #667eea;
+        }
+        
+        .message.system {
+            border-left-color: #4CAF50;
+            background: #f0f8f0;
+        }
+        
+        .message-author {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 0.9rem;
+        }
+        
+        .message.system .message-author {
+            color: #4CAF50;
+        }
+        
+        .message-text {
+            margin-top: 2px;
+        }
+        
+        .message-time {
+            font-size: 0.8rem;
+            color: #999;
+            float: right;
+        }
+        
+        .chat-input-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        
+        .stats-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            padding: 15px;
+            border-radius: 10px;
+            background: linear-gradient(45deg, #667eea10, #764ba210);
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            transition: width 0.5s ease;
+        }
+        
+        .firebase-setup {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .firebase-setup h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .firebase-setup p {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .config-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .timer-display {
+                font-size: 3rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Firebase設定セクション -->
+        <div class="firebase-setup" id="firebaseSetup">
+            <h3>🔧 Firebase設定が必要です</h3>
+            <p>Firebaseプロジェクトを作成して、設定情報を入力してください：</p>
+            <input type="text" class="config-input" id="apiKey" placeholder="API Key">
+            <input type="text" class="config-input" id="projectId" placeholder="Project ID">
+            <input type="text" class="config-input" id="appId" placeholder="App ID">
+            <button class="btn" onclick="initializeFirebase()">Firebase接続</button>
+            <p><small>※本番では環境変数として設定することを推奨</small></p>
+        </div>
+
+        <!-- ログイン画面 -->
+        <div class="login-section" id="loginSection" style="display: none;">
+            <h1>バーチャル作業部屋へようこそ</h1>
+            <p style="margin: 20px 0; color: #666;">みんなで集中して作業しましょう！</p>
+            <div>
+                <input type="text" class="login-input" id="usernameInput" placeholder="ニックネーム" maxlength="20">
+                <input type="text" class="login-input" id="roomInput" placeholder="部屋名" maxlength="30">
+                <button class="btn" onclick="joinRoom()">入室</button>
+            </div>
+        </div>
+
+        <!-- メインアプリ -->
+        <div class="main-app" id="mainApp">
+            <div class="header">
+                <div class="room-info">
+                    <div>部屋: <span id="currentRoom">-</span></div>
+                </div>
+                <div class="connection-status" id="connectionStatus">接続中...</div>
+                <div class="users-online" id="usersOnline">
+                    <!-- ユーザーアバターがここに表示される -->
+                </div>
+            </div>
+
+            <!-- バーチャルテーブルセクション -->
+            <div class="virtual-table">
+                <div class="table-title">🪑 バーチャル作業テーブル</div>
+                <div class="table-container" id="tableContainer">
+                    <div class="table-surface"></div>
+                    <div class="table-decoration">📚</div>
+                    
+                    <!-- 座席配置（円形に8席） -->
+                    <div class="seat" id="seat-0" style="top: 20px; left: 50%; transform: translateX(-50%);">
+                        <div class="seat-user"></div>
+                    </div>
+                    <div class="seat" id="seat-1" style="top: 35%; right: 20px;">
+                        <div class="seat-user"></div>
+                    </div>
+                    <div class="seat" id="seat-2" style="bottom: 35%; right: 20px;">
+                        <div class="seat-user"></div>
+                    </div>
+                    <div class="seat" id="seat-3" style="bottom: 20px; left: 50%; transform: translateX(-50%);">
+                        <div class="seat-user"></div>
+                    </div>
+                    <div class="seat" id="seat-4" style="bottom: 35%; left: 20px;">
+                        <div class="seat-user"></div>
+                    </div>
+                    <div class="seat" id="seat-5" style="top: 35%; left: 20px;">
+                        <div class="seat-user"></div>
+                    </div>
+                    <div class="seat" id="seat-6" style="top: 30%; left: 35%;">
+                        <div class="seat-user"></div>
+                    </div>
+                    <div class="seat" id="seat-7" style="top: 30%; right: 35%;">
+                        <div class="seat-user"></div>
+                    </div>
+                </div>
+                <div class="room-atmosphere" id="roomAtmosphere">
+                    🌟 静かな集中空間 - みんなで頑張りましょう！
+                </div>
+            </div>
+
+            <div class="main-content">
+                <!-- タイマーセクション -->
+                <div class="timer-section">
+                    <h3>ポモドーロタイマー</h3>
+                    <div class="timer-status" id="timerStatus">作業時間</div>
+                    <div class="timer-display" id="timerDisplay">25:00</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+                    </div>
+                    <div class="timer-controls">
+                        <button class="btn" id="startBtn" onclick="startTimer()">開始</button>
+                        <button class="btn" id="pauseBtn" onclick="pauseTimer()">一時停止</button>
+                        <button class="btn" onclick="resetTimer()">リセット</button>
+                    </div>
+                    <div style="margin-top: 15px; font-size: 0.9rem; color: #666;">
+                        <span id="timerOwner"></span>
+                    </div>
+                </div>
+
+                <!-- 音楽セクション -->
+                <div class="music-section">
+                    <h3>作業用BGM</h3>
+                    <div class="music-controls">
+                        <button class="btn" onclick="toggleMusic()">再生/停止</button>
+                        <div class="volume-control">
+                            <span>音量:</span>
+                            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="50" onchange="changeVolume()">
+                            <span id="volumeDisplay">50%</span>
+                        </div>
+                    </div>
+                    <div class="playlist">
+                        <div class="track-item" onclick="selectTrack(0)">
+                            <span>🌊 Ocean Waves</span>
+                        </div>
+                        <div class="track-item" onclick="selectTrack(1)">
+                            <span>🌧️ Rain Sounds</span>
+                        </div>
+                        <div class="track-item" onclick="selectTrack(2)">
+                            <span>🔥 Fireplace</span>
+                        </div>
+                        <div class="track-item" onclick="selectTrack(3)">
+                            <span>☕ Coffee Shop</span>
+                        </div>
+                        <div class="track-item" onclick="selectTrack(4)">
+                            <span>🎵 Lo-fi Hip Hop</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px;">
+                <!-- チャットセクション -->
+                <div class="chat-section">
+                    <h3>チャット</h3>
+                    <div class="chat-messages" id="chatMessages">
+                        <!-- メッセージがここに表示される -->
+                    </div>
+                    <div class="chat-input-container">
+                        <input type="text" class="chat-input" id="chatInput" placeholder="メッセージを入力..." maxlength="200" onkeypress="handleChatKeyPress(event)">
+                        <button class="btn" onclick="sendMessage()">送信</button>
+                    </div>
+                </div>
+
+                <!-- 統計セクション -->
+                <div class="stats-section">
+                    <h3>本日の統計</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-number" id="completedSessions">0</div>
+                            <div class="stat-label">完了セッション</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="totalTime">0</div>
+                            <div class="stat-label">作業時間(分)</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="onlineUsers">0</div>
+                            <div class="stat-label">オンライン</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // アプリの状態管理
+        let appState = {
+            username: '',
+            roomName: '',
+            isTimerRunning: false,
+            timerMinutes: 25,
+            timerSeconds: 0,
+            isBreakTime: false,
+            timerInterval: null,
+            completedSessions: 0,
+            totalWorkTime: 0,
+            currentTrack: -1,
+            isPlaying: false,
+            volume: 50,
+            users: {},
+            isConnected: false,
+            timerOwner: null,
+            timerStartTime: null
+        };
+
+        // Firebase関連変数
+        let db = null;
+        let roomRef = null;
+        let messagesRef = null;
+        let unsubscribeRoom = null;
+        let unsubscribeMessages = null;
+
+        // Firebase初期化
+        function initializeFirebase() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const projectId = document.getElementById('projectId').value.trim();
+            const appId = document.getElementById('appId').value.trim();
+
+            if (!apiKey || !projectId || !appId) {
+                alert('すべての設定項目を入力してください');
+                return;
+            }
+
+            const firebaseConfig = {
+                apiKey: apiKey,
+                authDomain: `${projectId}.firebaseapp.com`,
+                projectId: projectId,
+                storageBucket: `${projectId}.appspot.com`,
+                messagingSenderId: "123456789",
+                appId: appId
+            };
+
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                
+                document.getElementById('firebaseSetup').style.display = 'none';
+                document.getElementById('loginSection').style.display = 'block';
+                updateConnectionStatus('connected');
+            } catch (error) {
+                console.error('Firebase初期化エラー:', error);
+                alert('Firebase接続に失敗しました。設定を確認してください。');
+            }
+        }
+
+        // 接続状態の更新
+        function updateConnectionStatus(status) {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.className = `connection-status ${status}`;
+            
+            switch(status) {
+                case 'connected':
+                    statusElement.textContent = '🟢 接続済み';
+                    appState.isConnected = true;
+                    break;
+                case 'connecting':
+                    statusElement.textContent = '🟡 接続中...';
+                    appState.isConnected = false;
+                    break;
+                case 'disconnected':
+                    statusElement.textContent = '🔴 接続エラー';
+                    appState.isConnected = false;
+                    break;
+            }
+        }
+
+        // 部屋に入室
+        async function joinRoom() {
+            if (!db) {
+                alert('Firebaseが初期化されていません');
+                return;
+            }
+
+            const username = document.getElementById('usernameInput').value.trim();
+            const roomName = document.getElementById('roomInput').value.trim();
+            
+            if (!username || !roomName) {
+                alert('ニックネームと部屋名を入力してください');
+                return;
+            }
+            
+            appState.username = username;
+            appState.roomName = roomName;
+            
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            document.getElementById('currentRoom').textContent = roomName;
+
+            // Firebase参照を設定
+            roomRef = db.collection('rooms').doc(roomName);
+            messagesRef = roomRef.collection('messages');
+
+            // 部屋の状態を監視
+            listenToRoomUpdates();
+            listenToMessages();
+
+            // ユーザーを部屋に追加
+            await addUserToRoom(username);
+            
+            // システムメッセージを送信
+            sendSystemMessage(`${username}さんが入室しました`);
+        }
+
+        // ユーザーを部屋に追加
+        async function addUserToRoom(username) {
+            try {
+                await roomRef.set({
+                    [`users.${username}`]: {
+                        name: username,
+                        joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        online: true
+                    }
+                }, { merge: true });
+            } catch (error) {
+                console.error('ユーザー追加エラー:', error);
+            }
+        }
+
+        // 部屋の状態をリアルタイム監視
+        function listenToRoomUpdates() {
+            unsubscribeRoom = roomRef.onSnapshot((doc) => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    
+                    // ユーザーリストの更新
+                    if (data.users) {
+                        appState.users = data.users;
+                        updateUsersDisplay();
+                        document.getElementById('onlineUsers').textContent = Object.keys(data.users).length;
+                    }
+
+                    // タイマー状態の更新
+                    if (data.timer && data.timer.owner !== appState.username) {
+                        syncTimerFromRemote(data.timer);
+                    }
+
+                    // 音楽状態の更新
+                    if (data.music) {
+                        syncMusicFromRemote(data.music);
+                    }
+                }
+            }, (error) => {
+                console.error('部屋監視エラー:', error);
+                updateConnectionStatus('disconnected');
+            });
+        }
+
+        // メッセージをリアルタイム監視
+        function listenToMessages() {
+            unsubscribeMessages = messagesRef
+                .orderBy('timestamp', 'asc')
+                .limitToLast(50)
+                .onSnapshot((snapshot) => {
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === 'added') {
+                            const message = change.doc.data();
+                            if (message.timestamp) {
+                                addMessageToUI(message.author, message.text, message.type, message.timestamp.toDate());
+                            }
+                        }
+                    });
+                }, (error) => {
+                    console.error('メッセージ監視エラー:', error);
+                });
+        }
+
+        // タイマー機能
+        async function startTimer() {
+            if (!appState.isConnected) return;
+
+            if (!appState.isTimerRunning) {
+                appState.isTimerRunning = true;
+                appState.timerOwner = appState.username;
+                appState.timerStartTime = Date.now();
+                appState.timerInterval = setInterval(updateTimer, 1000);
+                
+                // Firebaseに状態を保存
+                await syncTimerToFirebase();
+                sendSystemMessage(`${appState.username}さんがタイマーを開始しました 🍅`);
+            }
+        }
+
+        async function pauseTimer() {
+            if (!appState.isConnected) return;
+
+            if (appState.isTimerRunning && appState.timerOwner === appState.username) {
+                appState.isTimerRunning = false;
+                clearInterval(appState.timerInterval);
+                
+                await syncTimerToFirebase();
+                sendSystemMessage(`${appState.username}さんがタイマーを一時停止しました ⏸️`);
+            }
+        }
+
+        async function resetTimer() {
+            if (!appState.isConnected) return;
+
+            appState.isTimerRunning = false;
+            clearInterval(appState.timerInterval);
+            appState.timerMinutes = appState.isBreakTime ? 5 : 25;
+            appState.timerSeconds = 0;
+            appState.timerOwner = null;
+            appState.timerStartTime = null;
+            
+            updateTimerDisplay();
+            updateProgress();
+            await syncTimerToFirebase();
+            sendSystemMessage(`${appState.username}さんがタイマーをリセットしました 🔄`);
+        }
+
+        // Firebaseにタイマー状態を同期
+        async function syncTimerToFirebase() {
+            if (!roomRef) return;
+
+            try {
+                await roomRef.set({
+                    timer: {
+                        isRunning: appState.isTimerRunning,
+                        minutes: appState.timerMinutes,
+                        seconds: appState.timerSeconds,
+                        isBreakTime: appState.isBreakTime,
+                        owner: appState.timerOwner,
+                        startTime: appState.timerStartTime,
+                        lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
+                    }
+                }, { merge: true });
+            } catch (error) {
+                console.error('タイマー同期エラー:', error);
+            }
+        }
+
+        // Firebaseからタイマー状態を同期
+        function syncTimerFromRemote(timerData) {
+            if (timerData.owner && timerData.owner !== appState.username) {
+                appState.isTimerRunning = timerData.isRunning;
+                appState.timerMinutes = timerData.minutes;
+                appState.timerSeconds = timerData.seconds;
+                appState.isBreakTime = timerData.isBreakTime;
+                appState.timerOwner = timerData.owner;
+                appState.timerStartTime = timerData.startTime;
+
+                // タイマーが動いている場合、時間を再計算
+                if (appState.isTimerRunning && timerData.startTime) {
+                    const elapsed = Math.floor((Date.now() - timerData.startTime) / 1000);
+                    const totalSeconds = appState.timerMinutes * 60 + appState.timerSeconds;
+                    const remainingSeconds = Math.max(0, totalSeconds - elapsed);
+                    
+                    appState.timerMinutes = Math.floor(remainingSeconds / 60);
+                    appState.timerSeconds = remainingSeconds % 60;
+
+                    if (!appState.timerInterval) {
+                        appState.timerInterval = setInterval(updateTimer, 1000);
+                    }
+                } else if (!appState.isTimerRunning) {
+                    clearInterval(appState.timerInterval);
+                    appState.timerInterval = null;
+                }
+
+                updateTimerDisplay();
+                updateProgress();
+                updateTimerControls();
+                updateVirtualTable(); // テーブル表示も更新
+            }
+        }
+
+        function updateTimer() {
+            if (appState.timerSeconds === 0) {
+                if (appState.timerMinutes === 0) {
+                    // タイマー完了
+                    clearInterval(appState.timerInterval);
+                    appState.isTimerRunning = false;
+                    
+                    if (!appState.isBreakTime) {
+                        appState.completedSessions++;
+                        appState.totalWorkTime += 25;
+                        document.getElementById('completedSessions').textContent = appState.completedSessions;
+                        document.getElementById('totalTime').textContent = appState.totalWorkTime;
+                        
+                        appState.isBreakTime = true;
+                        appState.timerMinutes = 5;
+                        document.getElementById('timerStatus').textContent = '休憩時間';
+                        if (appState.timerOwner === appState.username) {
+                            sendSystemMessage('お疲れさま！5分間の休憩です ☕');
+                        }
+                    } else {
+                        appState.isBreakTime = false;
+                        appState.timerMinutes = 25;
+                        document.getElementById('timerStatus').textContent = '作業時間';
+                        if (appState.timerOwner === appState.username) {
+                            sendSystemMessage('休憩終了！次のセッションを始めましょう 💪');
+                        }
+                    }
+                    appState.timerSeconds = 0;
+                    appState.timerOwner = null;
+                    
+                    if (appState.username === appState.timerOwner) {
+                        syncTimerToFirebase();
+                    }
+                } else {
+                    appState.timerMinutes--;
+                    appState.timerSeconds = 59;
+                }
+            } else {
+                appState.timerSeconds--;
+            }
+            
+            updateTimerDisplay();
+            updateProgress();
+            updateVirtualTable(); // テーブル表示も更新
+        }
+
+        function updateTimerDisplay() {
+            const display = document.getElementById('timerDisplay');
+            const minutes = String(appState.timerMinutes).padStart(2, '0');
+            const seconds = String(appState.timerSeconds).padStart(2, '0');
+            display.textContent = `${minutes}:${seconds}`;
+        }
+
+        function updateProgress() {
+            const totalSeconds = appState.isBreakTime ? 5 * 60 : 25 * 60;
+            const currentSeconds = appState.timerMinutes * 60 + appState.timerSeconds;
+            const progress = ((totalSeconds - currentSeconds) / totalSeconds) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+        }
+
+        // タイマーコントロールの状態更新
+        function updateTimerControls() {
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const ownerElement = document.getElementById('timerOwner');
+            
+            if (appState.timerOwner && appState.timerOwner !== appState.username) {
+                startBtn.disabled = true;
+                pauseBtn.disabled = true;
+                ownerElement.textContent = `${appState.timerOwner}さんが操作中`;
+            } else {
+                startBtn.disabled = false;
+                pauseBtn.disabled = false;
+                ownerElement.textContent = '';
+            }
+        }
+
+        // 音楽機能
+        async function toggleMusic() {
+            appState.isPlaying = !appState.isPlaying;
+            
+            if (roomRef) {
+                await syncMusicToFirebase();
+            }
+            
+            const message = appState.isPlaying ? 'BGMが再生されました 🎵' : 'BGMが停止されました ⏹️';
+            sendSystemMessage(message);
+        }
+
+        async function selectTrack(index) {
+            // 前の選択を解除
+            document.querySelectorAll('.track-item').forEach(item => {
+                item.classList.remove('playing');
+            });
+            
+            // 新しい選択を設定
+            document.querySelectorAll('.track-item')[index].classList.add('playing');
+            appState.currentTrack = index;
+            
+            if (roomRef) {
+                await syncMusicToFirebase();
+            }
+            
+            const trackNames = ['🌊 Ocean Waves', '🌧️ Rain Sounds', '🔥 Fireplace', '☕ Coffee Shop', '🎵 Lo-fi Hip Hop'];
+            sendSystemMessage(`${appState.username}さんが音楽を変更: ${trackNames[index]}`);
+        }
+
+        // Firebaseに音楽状態を同期
+        async function syncMusicToFirebase() {
+            if (!roomRef) return;
+
+            try {
+                await roomRef.set({
+                    music: {
+                        isPlaying: appState.isPlaying,
+                        currentTrack: appState.currentTrack,
+                        volume: appState.volume,
+                        lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
+                    }
+                }, { merge: true });
+            } catch (error) {
+                console.error('音楽同期エラー:', error);
+            }
+        }
+
+        // Firebaseから音楽状態を同期
+        function syncMusicFromRemote(musicData) {
+            appState.isPlaying = musicData.isPlaying;
+            appState.currentTrack = musicData.currentTrack;
+            appState.volume = musicData.volume;
+
+            // UI更新
+            document.getElementById('volumeSlider').value = appState.volume;
+            document.getElementById('volumeDisplay').textContent = `${appState.volume}%`;
+            
+            // プレイリスト表示更新
+            document.querySelectorAll('.track-item').forEach((item, index) => {
+                item.classList.toggle('playing', index === appState.currentTrack);
+            });
+        }
+
+        function changeVolume() {
+            const slider = document.getElementById('volumeSlider');
+            appState.volume = slider.value;
+            document.getElementById('volumeDisplay').textContent = `${appState.volume}%`;
+            
+            if (roomRef) {
+                syncMusicToFirebase();
+            }
+        }
+
+        // チャット機能
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (message && messagesRef) {
+                try {
+                    await messagesRef.add({
+                        author: appState.username,
+                        text: message,
+                        type: 'user',
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    input.value = '';
+                } catch (error) {
+                    console.error('メッセージ送信エラー:', error);
+                }
+            }
+        }
+
+        async function sendSystemMessage(text) {
+            if (messagesRef) {
+                try {
+                    await messagesRef.add({
+                        author: 'システム',
+                        text: text,
+                        type: 'system',
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (error) {
+                    console.error('システムメッセージ送信エラー:', error);
+                }
+            }
+        }
+
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function addMessageToUI(author, text, type = 'user', timestamp = new Date()) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            const authorDiv = document.createElement('div');
+            authorDiv.className = 'message-author';
+            authorDiv.textContent = author;
+            
+            const textDiv = document.createElement('div');
+            textDiv.className = 'message-text';
+            textDiv.textContent = text;
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = timestamp.toLocaleTimeString('ja-JP', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            messageDiv.appendChild(authorDiv);
+            messageDiv.appendChild(textDiv);
+            messageDiv.appendChild(timeDiv);
+            messagesContainer.appendChild(messageDiv);
+            
+            // 自動スクロール
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // メッセージ数制限（パフォーマンス対策）
+            const messages = messagesContainer.querySelectorAll('.message');
+            if (messages.length > 100) {
+                messages[0].remove();
+            }
+        }
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTimerDisplay();
+            updateProgress();
+            updateVirtualTable();
+            updateConnectionStatus('connecting');
+        });
+
+        // ページを離れる時のクリーンアップ
+        window.addEventListener('beforeunload', async function() {
+            if (appState.username && roomRef) {
+                try {
+                    await roomRef.set({
+                        [`users.${appState.username}.online`]: false
+                    }, { merge: true });
+                } catch (error) {
+                    console.error('退室処理エラー:', error);
+                }
+            }
+            
+            // リスナーの解除
+            if (unsubscribeRoom) unsubscribeRoom();
+            if (unsubscribeMessages) unsubscribeMessages();
+        });
