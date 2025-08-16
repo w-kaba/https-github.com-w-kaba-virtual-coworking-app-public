@@ -13,5 +13,4 @@ window.firebaseConfig = {
 };
 
 // 設定確認用（デバッグ）
-console.log('🔥 Firebase設定が読み込まれました:', window.firebaseConfig.projectId);// Firebase設定ファイル
-
+console.log('🔥 Firebase設定が読み込まれました:', window.firebaseConfig.projectId);
