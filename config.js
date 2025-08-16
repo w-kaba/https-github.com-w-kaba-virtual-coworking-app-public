@@ -11,6 +11,3 @@ window.firebaseConfig = {
     appId: "1:902791047246:web:f2048e3843c3e70b087b1f",
     measurementId: "G-KRNXH7VD6Y"
 };
-
-// 設定確認用（デバッグ）
-console.log('🔥 Firebase設定が読み込まれました:', window.firebaseConfig.projectId);
