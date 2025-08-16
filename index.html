@@ -12,6 +12,7 @@
             box-sizing: border-box;
         }
 
+```
     body {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -547,7 +548,9 @@
         border-radius: 10px;
         margin-bottom: 20px;
     }
-    </style>
+</style>
+```
+
 </head>
 <body>
     <div class="container">
@@ -556,6 +559,8 @@
             <div>🔥 Firebase に接続中...</div>
             <div style="margin-top: 10px; font-size: 1rem;">しばらくお待ちください</div>
         </div>
+
+```
     <!-- エラー画面 -->
     <div class="error" id="errorScreen" style="display: none;">
         <h3>❌ 接続エラー</h3>
@@ -708,21 +713,27 @@
             </div>
         </div>
     </div>
+</div>
 
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
+<!-- YouTube API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<!-- Firebase設定ファイル -->
+<script src="config.js"></script>
+
 <script>
     // TODO: Firebase設定をここに貼り付けてください
     const firebaseConfig = {
-        apiKey: "AIzaSyCUp39wJR1IKoHG1ek_NZY0B-2neosi_rg",
-        authDomain: "virtual-coworking-app.firebaseapp.com",
-        projectId: "virtual-coworking-app",
-        storageBucket: "virtual-coworking-app.firebasestorage.app",
-        messagingSenderId: "902791047246",
-        appId: "1:902791047246:web:f2048e3843c3e70b087b1f",
-        measurementId: "G-KRNXH7VD6Y"
+        apiKey: "YOUR_API_KEY_HERE",
+        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_PROJECT_ID.appspot.com",
+        messagingSenderId: "YOUR_SENDER_ID",
+        appId: "YOUR_APP_ID"
     };
 
     // アプリの状態管理
@@ -743,8 +754,51 @@
         isConnected: false,
         timerOwner: null,
         timerStartTime: null,
-        audioContext: null
+        youtubePlayer: null,
+        youtubeReady: false
     };
+
+    // YouTube動画ID配列
+    const videoIds = [
+        'jfKfPfyJRdk', // Ocean Waves
+        'q76bMs-NwRk', // Rain Sounds  
+        'UgHKb_7884o', // Fireplace
+        'DeumyOzKqgI', // Coffee Shop Jazz
+        '5qap5aO4i9A'  // Lo-fi Hip Hop
+    ];
+
+    // YouTube API準備完了時の処理
+    function onYouTubeIframeAPIReady() {
+        appState.youtubePlayer = new YT.Player('youtube-player', {
+            height: '0',
+            width: '0',
+            videoId: videoIds[0],
+            playerVars: {
+                autoplay: 0,
+                controls: 0,
+                loop: 1,
+                playlist: videoIds[0],
+                rel: 0,
+                showinfo: 0,
+                modestbranding: 1
+            },
+            events: {
+                onReady: function(event) {
+                    appState.youtubeReady = true;
+                    console.log('YouTube Player準備完了');
+                },
+                onStateChange: function(event) {
+                    // 動画終了時の処理
+                    if (event.data === YT.PlayerState.ENDED) {
+                        // ループ再生のため再開
+                        if (appState.isPlaying) {
+                            appState.youtubePlayer.playVideo();
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     // Firebase関連変数
     let db = null;
@@ -755,6 +809,12 @@
 
     // Firebase初期化
     function initializeFirebase() {
+        // 設定の初期化を試行
+        if (!initializeFirebaseConfig()) {
+            handleMissingConfig();
+            if (!firebaseConfig) return;
+        }
+        
         try {
             firebase.initializeApp(firebaseConfig);
             db = firebase.firestore();
@@ -765,7 +825,7 @@
             updateConnectionStatus('connected');
         } catch (error) {
             console.error('Firebase初期化エラー:', error);
-            showError('Firebase接続に失敗しました。設定を確認してください。');
+            showError('Firebase接続に失敗しました。config.js の設定を確認してください。');
         }
     }
 
@@ -1225,32 +1285,39 @@
 
     // 音楽機能
     async function toggleMusic() {
-        // ブラウザの音声再生許可を取得
-        if (!appState.audioContext) {
-            try {
-                // Web Audio APIを初期化（ユーザー操作が必要）
-                appState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                
-                // 実際の音声ファイルがない場合は、視覚的フィードバックのみ
-                console.log('音声再生が有効になりました');
-            } catch (error) {
-                console.log('音声再生は利用できませんが、同期は動作します');
-            }
+        if (!appState.youtubeReady) {
+            alert('YouTube Playerの準備中です。少しお待ちください。');
+            return;
         }
         
         appState.isPlaying = !appState.isPlaying;
+        
+        try {
+            if (appState.isPlaying) {
+                appState.youtubePlayer.playVideo();
+            } else {
+                appState.youtubePlayer.pauseVideo();
+            }
+        } catch (error) {
+            console.error('YouTube制御エラー:', error);
+        }
         
         if (roomRef) {
             await syncMusicToFirebase();
         }
         
         const message = appState.isPlaying ? 
-            `BGMが再生されました 🎵 (※実際の音声ファイルは接続されていません)` : 
+            `BGMが再生されました 🎵` : 
             'BGMが停止されました ⏹️';
         sendSystemMessage(message);
     }
 
     async function selectTrack(index) {
+        if (!appState.youtubeReady) {
+            alert('YouTube Playerの準備中です。少しお待ちください。');
+            return;
+        }
+        
         // 前の選択を解除
         document.querySelectorAll('.track-item').forEach(item => {
             item.classList.remove('playing');
@@ -1260,12 +1327,26 @@
         document.querySelectorAll('.track-item')[index].classList.add('playing');
         appState.currentTrack = index;
         
+        try {
+            // 動画を変更
+            appState.youtubePlayer.loadVideoById(videoIds[index]);
+            
+            // 再生状態を維持
+            if (appState.isPlaying) {
+                setTimeout(() => {
+                    appState.youtubePlayer.playVideo();
+                }, 1000); // 動画読み込み待ち
+            }
+        } catch (error) {
+            console.error('動画変更エラー:', error);
+        }
+        
         if (roomRef) {
             await syncMusicToFirebase();
         }
         
-        const trackNames = ['🌊 Ocean Waves', '🌧️ Rain Sounds', '🔥 Fireplace', '☕ Coffee Shop', '🎵 Lo-fi Hip Hop'];
-        sendSystemMessage(`${appState.username}さんが音楽を変更: ${trackNames[index]} (※実際の音声ファイルは接続されていません)`);
+        const trackNames = ['🌊 Ocean Waves', '🌧️ Rain Sounds', '🔥 Fireplace', '☕ Coffee Shop Jazz', '🎵 Lo-fi Hip Hop'];
+        sendSystemMessage(`${appState.username}さんが音楽を変更: ${trackNames[index]}`);
     }
 
     // Firebaseに音楽状態を同期
@@ -1278,6 +1359,7 @@
                     isPlaying: appState.isPlaying,
                     currentTrack: appState.currentTrack,
                     volume: appState.volume,
+                    videoId: videoIds[appState.currentTrack] || videoIds[0],
                     lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
                 }
             }, { merge: true });
@@ -1288,9 +1370,46 @@
 
     // Firebaseから音楽状態を同期
     function syncMusicFromRemote(musicData) {
+        if (!appState.youtubeReady) return;
+        
+        const wasPlaying = appState.isPlaying;
+        const wasTrack = appState.currentTrack;
+        
         appState.isPlaying = musicData.isPlaying;
         appState.currentTrack = musicData.currentTrack;
         appState.volume = musicData.volume;
+
+        try {
+            // 音量調整
+            if (appState.youtubePlayer && appState.youtubePlayer.setVolume) {
+                appState.youtubePlayer.setVolume(appState.volume);
+            }
+            
+            // 動画変更
+            if (wasTrack !== appState.currentTrack && musicData.videoId) {
+                appState.youtubePlayer.loadVideoById(musicData.videoId);
+                
+                // 再生状態に合わせる
+                setTimeout(() => {
+                    if (appState.isPlaying) {
+                        appState.youtubePlayer.playVideo();
+                    } else {
+                        appState.youtubePlayer.pauseVideo();
+                    }
+                }, 1000);
+            } else {
+                // 再生/停止のみの変更
+                if (wasPlaying !== appState.isPlaying) {
+                    if (appState.isPlaying) {
+                        appState.youtubePlayer.playVideo();
+                    } else {
+                        appState.youtubePlayer.pauseVideo();
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('YouTube同期エラー:', error);
+        }
 
         // UI更新
         const volumeSlider = document.getElementById('volumeSlider');
@@ -1314,6 +1433,11 @@
         if (slider && display) {
             appState.volume = slider.value;
             display.textContent = `${appState.volume}%`;
+            
+            // YouTube音量調整
+            if (appState.youtubePlayer && appState.youtubePlayer.setVolume) {
+                appState.youtubePlayer.setVolume(appState.volume);
+            }
             
             if (roomRef) {
                 syncMusicToFirebase();
@@ -1401,6 +1525,63 @@
         }
     }
 
+    // 設定がない場合のヘルプ画面
+    function showConfigHelp() {
+        document.body.innerHTML = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 30px; background: white; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+                <h2 style="color: #667eea; text-align: center; margin-bottom: 20px;">🔧 設定が必要です</h2>
+                <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
+                    このアプリを使用するには、管理者が設定した<strong>共有URL</strong>が必要です。
+                </p>
+                <div style="background: #f0f8ff; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                    <h3 style="color: #333; margin-bottom: 10px;">📱 管理者へ連絡してください</h3>
+                    <p>「バーチャル作業部屋の共有URLを教えてください」とお伝えください。</p>
+                </div>
+                <div style="background: #fff3cd; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                    <h3 style="color: #856404; margin-bottom: 10px;">🔑 管理者の方へ</h3>
+                    <p>右下の「共有URL生成」ボタンを押して、みんなに共有してください。</p>
+                </div>
+                <button onclick="location.reload()" style="width: 100%; padding: 15px; background: #667eea; color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; margin-top: 20px;">
+                    ページを再読み込み
+                </button>
+            </div>
+        `;
+    }
+
+    // 共有URL生成
+    function generateShareURL() {
+        if (!firebaseConfig) {
+            alert('Firebase設定がありません。まず設定を完了してください。');
+            return;
+        }
+        
+        try {
+            const configString = JSON.stringify(firebaseConfig);
+            const encoded = btoa(configString);
+            const shareURL = `${window.location.origin}${window.location.pathname}?config=${encoded}`;
+            
+            // クリップボードにコピー
+            navigator.clipboard.writeText(shareURL).then(() => {
+                alert(`共有URLをクリップボードにコピーしました！\n\nこのURLをみんなに送ってください。\nURL経由でアクセスすると、Firebase設定が自動で適用されます。\n\n${shareURL}`);
+            }).catch(() => {
+                // フォールバック
+                prompt('以下のURLをコピーしてみんなに共有してください:', shareURL);
+            });
+        } catch (error) {
+            console.error('URL生成エラー:', error);
+            alert('共有URL生成に失敗しました。');
+        }
+    }
+
+    // Firebase設定リセット機能
+    function resetFirebaseConfig() {
+        if (confirm('Firebase設定をリセットしますか？次回アクセス時に再入力が必要になります。')) {
+            localStorage.removeItem('firebaseConfig');
+            alert('Firebase設定をリセットしました。ページを再読み込みしてください。');
+            location.reload();
+        }
+    }
+
     // 初期化
     document.addEventListener('DOMContentLoaded', function() {
         updateTimerDisplay();
@@ -1430,6 +1611,7 @@
         if (unsubscribeMessages) unsubscribeMessages();
     });
 </script>
+```
 
 </body>
 </html>
